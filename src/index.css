@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-feature-settings: 'tnum' 1;
+}
+
+.font-display {
+  letter-spacing: -0.01em;
+}
+
+.num {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background-color: #deb455;
+  color: #0f1420;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #9aa9bd transparent;
+}
+
+:focus-visible {
+  outline: 2px solid #cf9a34;
+  outline-offset: 2px;
+}
