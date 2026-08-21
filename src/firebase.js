@@ -1,7 +1,4 @@
 // Firebase initialization.
-// Fill in your project's credentials in a `.env` file at the project root
-// (copy `.env.example` to `.env`). These values come from:
-// Firebase Console → Project Settings → General → Your apps → SDK setup and configuration.
 
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
@@ -9,12 +6,12 @@ import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyBHkZqRIrnETRymkIQ8xdRqZ6rnETxPqQs",
+  authDomain: "obratrack-2a464.firebaseapp.com",
+  projectId: "obratrack-2a464",
+  storageBucket: "obratrack-2a464.firebasestorage.app",
+  messagingSenderId: "152136124318",
+  appId: "1:152136124318:web:67c7375a6dcc1cb3eb388f"
 }
 
 export const app = initializeApp(firebaseConfig)
