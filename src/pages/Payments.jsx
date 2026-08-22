@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileDown, Plus } from 'lucide-react'
-import { Collections, listAll, subscribeAll, getOne } from '../lib/db.js'
+import { FileDown, Plus, Trash2 } from 'lucide-react'
+import { Collections, listAll, subscribeAll, getOne, removeOne } from '../lib/db.js'
 import { formatKz, formatDate, formatPercent } from '../lib/format.js'
 import { exportPaymentReceiptPDF } from '../lib/pdf.js'
 import { calculatePayment } from '../lib/calc.js'
@@ -41,6 +41,11 @@ export default function Payments() {
       retentionRate: p.retentionRate ?? obra?.retentionRate ?? 0
     })
     exportPaymentReceiptPDF(p, client, obra, calc)
+  }
+
+  async function handleDelete(p) {
+    if (!confirm('Eliminar este pagamento? Esta ação não pode ser desfeita.')) return
+    await removeOne(Collections.PAYMENTS, p.id)
   }
 
   return (
@@ -83,43 +88,50 @@ export default function Payments() {
       </div>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Data</th>
-              <th className="px-4 py-3 font-medium">Cliente</th>
-              <th className="px-4 py-3 font-medium">Obra</th>
-              <th className="px-4 py-3 font-medium text-right">Valor</th>
-              <th className="px-4 py-3 font-medium">Método</th>
-              <th className="px-4 py-3 font-medium">Referência</th>
-              <th className="px-4 py-3 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr key={p.id} className="border-b border-ink-50 last:border-0 hover:bg-gold-50/30">
-                <td className="px-4 py-3 num">{formatDate(p.paymentDate)}</td>
-                <td className="px-4 py-3 text-ink-700">{clientMap[p.clientId]?.clientName || '—'}</td>
-                <td className="px-4 py-3 text-ink-500">{obraMap[p.obraId]?.obraName || '—'}</td>
-                <td className="px-4 py-3 num text-right font-medium">{formatKz(p.paymentAmount)}</td>
-                <td className="px-4 py-3 text-ink-500">{p.paymentMethod}</td>
-                <td className="px-4 py-3 num text-ink-400">{p.paymentReference || '—'}</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => handleReceipt(p)} className="flex items-center gap-1 text-xs text-ink-400 hover:text-ink-800">
-                    <FileDown size={14} /> Recibo
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[760px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium">Cliente</th>
+                <th className="px-4 py-3 font-medium">Obra</th>
+                <th className="px-4 py-3 font-medium text-right">Valor</th>
+                <th className="px-4 py-3 font-medium">Método</th>
+                <th className="px-4 py-3 font-medium">Referência</th>
+                <th className="px-4 py-3 font-medium"></th>
               </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
-                  Nenhum pagamento encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((p) => (
+                <tr key={p.id} className="border-b border-ink-50 last:border-0 hover:bg-gold-50/30">
+                  <td className="px-4 py-3 num">{formatDate(p.paymentDate)}</td>
+                  <td className="px-4 py-3 text-ink-700">{clientMap[p.clientId]?.clientName || '—'}</td>
+                  <td className="px-4 py-3 text-ink-500">{obraMap[p.obraId]?.obraName || '—'}</td>
+                  <td className="px-4 py-3 num text-right font-medium">{formatKz(p.paymentAmount)}</td>
+                  <td className="px-4 py-3 text-ink-500">{p.paymentMethod}</td>
+                  <td className="px-4 py-3 num text-ink-400">{p.paymentReference || '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleReceipt(p)} className="flex items-center gap-1 text-xs text-ink-400 hover:text-ink-800">
+                        <FileDown size={14} /> Recibo
+                      </button>
+                      <button onClick={() => handleDelete(p)} className="flex items-center gap-1 text-xs text-clay-500 hover:text-clay-500/80">
+                        <Trash2 size={14} /> Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
+                    Nenhum pagamento encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   )

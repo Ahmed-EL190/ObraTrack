@@ -68,39 +68,41 @@ export default function Clients() {
       </div>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Cliente</th>
-              <th className="px-4 py-3 font-medium">NIF</th>
-              <th className="px-4 py-3 font-medium">Contacto</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => (
-              <tr
-                key={c.id}
-                onClick={() => navigate(`/clientes/${c.id}`)}
-                className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
-              >
-                <td className="px-4 py-3 font-medium text-ink-800">{c.clientName}</td>
-                <td className="px-4 py-3 num text-ink-500">{c.nif || '—'}</td>
-                <td className="px-4 py-3 text-ink-500">{c.phone || c.email || '—'}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={c.status === 'Inativo' ? 'clay' : 'moss'}>{c.status}</Badge>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Cliente</th>
+                <th className="px-4 py-3 font-medium">NIF</th>
+                <th className="px-4 py-3 font-medium">Contacto</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-ink-400">
-                  Nenhum cliente encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr
+                  key={c.id}
+                  onClick={() => navigate(`/clientes/${c.id}`)}
+                  className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
+                >
+                  <td className="px-4 py-3 font-medium text-ink-800">{c.clientName}</td>
+                  <td className="px-4 py-3 num text-ink-500">{c.nif || '—'}</td>
+                  <td className="px-4 py-3 text-ink-500">{c.phone || c.email || '—'}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={c.status === 'Inativo' ? 'clay' : 'moss'}>{c.status}</Badge>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-ink-400">
+                    Nenhum cliente encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {showForm && (

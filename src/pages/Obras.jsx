@@ -126,45 +126,47 @@ export default function Obras() {
       </div>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Obra</th>
-              <th className="px-4 py-3 font-medium">Cliente</th>
-              <th className="px-4 py-3 font-medium text-right">Total</th>
-              <th className="px-4 py-3 font-medium text-right">Pago</th>
-              <th className="px-4 py-3 font-medium">%</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ obra, ...s }) => (
-              <tr
-                key={obra.id}
-                onClick={() => navigate(`/obras/${obra.id}`)}
-                className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
-              >
-                <td className="px-4 py-3 font-medium text-ink-800">{obra.obraName}</td>
-                <td className="px-4 py-3 text-ink-500">{clientMap[obra.clientId]?.clientName || '—'}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(s.obraTotal)}</td>
-                <td className="px-4 py-3 num text-right text-moss-500">{formatKz(s.totalPaid)}</td>
-                <td className="px-4 py-3 num">{formatPercent(s.paidPercent)}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={obra.status === 'Concluída' ? 'moss' : obra.status === 'Suspensa' || obra.status === 'Cancelada' ? 'clay' : 'gold'}>
-                    {obra.status}
-                  </Badge>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Obra</th>
+                <th className="px-4 py-3 font-medium">Cliente</th>
+                <th className="px-4 py-3 font-medium text-right">Total</th>
+                <th className="px-4 py-3 font-medium text-right">Pago</th>
+                <th className="px-4 py-3 font-medium">%</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
               </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-ink-400">
-                  Nenhuma obra encontrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map(({ obra, ...s }) => (
+                <tr
+                  key={obra.id}
+                  onClick={() => navigate(`/obras/${obra.id}`)}
+                  className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
+                >
+                  <td className="px-4 py-3 font-medium text-ink-800">{obra.obraName}</td>
+                  <td className="px-4 py-3 text-ink-500">{clientMap[obra.clientId]?.clientName || '—'}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(s.obraTotal)}</td>
+                  <td className="px-4 py-3 num text-right text-moss-500">{formatKz(s.totalPaid)}</td>
+                  <td className="px-4 py-3 num">{formatPercent(s.paidPercent)}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={obra.status === 'Concluída' ? 'moss' : obra.status === 'Suspensa' || obra.status === 'Cancelada' ? 'clay' : 'gold'}>
+                      {obra.status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-ink-400">
+                    Nenhuma obra encontrada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {showForm && (
@@ -177,7 +179,7 @@ export default function Obras() {
               </button>
             </div>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Cliente *">
                   <Select required value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
                     <option value="">Selecionar…</option>
@@ -195,7 +197,7 @@ export default function Obras() {
               <Field label="Nome da Obra *">
                 <Input required value={form.obraName} onChange={(e) => setForm({ ...form, obraName: e.target.value })} />
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Localização">
                   <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
                 </Field>
@@ -204,7 +206,7 @@ export default function Obras() {
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field label="Total Material (Kz)">
                   <Input type="number" step="0.01" value={form.totalMaterial} onChange={(e) => setForm({ ...form, totalMaterial: e.target.value })} />
                 </Field>
@@ -222,7 +224,7 @@ export default function Obras() {
                 <span>Total Geral: <strong className="text-ink-900">{formatKz(preview.totalGeral)}</strong></span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Taxa de Retenção (%)" hint="Deixe em branco para usar a definição global">
                   <Input type="number" step="0.01" value={form.retentionRate} onChange={(e) => setForm({ ...form, retentionRate: e.target.value })} />
                 </Field>
@@ -231,7 +233,7 @@ export default function Obras() {
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field label="Estado">
                   <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                     <option value="Planeamento">Planeamento</option>

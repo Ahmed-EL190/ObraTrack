@@ -100,7 +100,7 @@ export default function ObraDetail() {
         }
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <Card className="p-4">
           <p className="text-xs uppercase tracking-wide text-ink-400">Total Material</p>
           <p className="num mt-1 text-lg font-semibold">{formatKz(obra.totalMaterial)}</p>
@@ -119,7 +119,7 @@ export default function ObraDetail() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <Card className="p-4">
           <p className="text-xs uppercase tracking-wide text-ink-400">Total Pago</p>
           <p className="num mt-1 text-lg font-semibold text-moss-500">{formatKz(summary.totalPaid)}</p>
@@ -141,7 +141,7 @@ export default function ObraDetail() {
         </Card>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <Badge tone={summary.status === 'Pago' ? 'moss' : summary.status === 'Não Iniciado' ? 'ink' : 'gold'}>{summary.status}</Badge>
         <Badge tone="ink">Progresso Físico: {formatPercent(obra.physicalProgress || 0)}</Badge>
         <Badge tone="ink">{summary.paymentCount} pagamento(s)</Badge>
@@ -149,72 +149,76 @@ export default function ObraDetail() {
 
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Histórico de Pagamentos</h2>
       <Card className="overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Data</th>
-              <th className="px-4 py-3 font-medium text-right">Pagamento</th>
-              <th className="px-4 py-3 font-medium">%</th>
-              <th className="px-4 py-3 font-medium">% Acumulada</th>
-              <th className="px-4 py-3 font-medium text-right">Mão de Obra</th>
-              <th className="px-4 py-3 font-medium text-right">Retenção</th>
-              <th className="px-4 py-3 font-medium text-right">Restante</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summary.rows.map((r, i) => (
-              <tr key={r.id || i} className="border-b border-ink-50 last:border-0">
-                <td className="px-4 py-3 num">{formatDate(r.paymentDate)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.paymentAmount)}</td>
-                <td className="px-4 py-3 num">{formatPercent(r.paymentPercent)}</td>
-                <td className="px-4 py-3 num">{formatPercent(r.cumulativePercent)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.maoDeObraPortion)}</td>
-                <td className="px-4 py-3 num text-right text-gold-600">{formatKz(r.retentionAmount)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.remainingAfter)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[820px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium text-right">Pagamento</th>
+                <th className="px-4 py-3 font-medium">%</th>
+                <th className="px-4 py-3 font-medium">% Acumulada</th>
+                <th className="px-4 py-3 font-medium text-right">Mão de Obra</th>
+                <th className="px-4 py-3 font-medium text-right">Retenção</th>
+                <th className="px-4 py-3 font-medium text-right">Restante</th>
               </tr>
-            ))}
-            {summary.rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
-                  Sem pagamentos registados para esta obra.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {summary.rows.map((r, i) => (
+                <tr key={r.id || i} className="border-b border-ink-50 last:border-0">
+                  <td className="px-4 py-3 num">{formatDate(r.paymentDate)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.paymentAmount)}</td>
+                  <td className="px-4 py-3 num">{formatPercent(r.paymentPercent)}</td>
+                  <td className="px-4 py-3 num">{formatPercent(r.cumulativePercent)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.maoDeObraPortion)}</td>
+                  <td className="px-4 py-3 num text-right text-gold-600">{formatKz(r.retentionAmount)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.remainingAfter)}</td>
+                </tr>
+              ))}
+              {summary.rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
+                    Sem pagamentos registados para esta obra.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Proformas</h2>
       <Card className="overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Número</th>
-              <th className="px-4 py-3 font-medium">Data</th>
-              <th className="px-4 py-3 font-medium text-right">Total Geral</th>
-            </tr>
-          </thead>
-          <tbody>
-            {proformas.map((pf) => (
-              <tr
-                key={pf.id}
-                onClick={() => navigate(`/proformas/${pf.id}`)}
-                className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
-              >
-                <td className="px-4 py-3 num text-ink-800">{pf.proformaNumber}</td>
-                <td className="px-4 py-3 num">{formatDate(pf.date)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(pf.totalGeral)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[420px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Número</th>
+                <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium text-right">Total Geral</th>
               </tr>
-            ))}
-            {proformas.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-ink-400">
-                  Sem proformas associadas.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {proformas.map((pf) => (
+                <tr
+                  key={pf.id}
+                  onClick={() => navigate(`/proformas/${pf.id}`)}
+                  className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
+                >
+                  <td className="px-4 py-3 num text-ink-800">{pf.proformaNumber}</td>
+                  <td className="px-4 py-3 num">{formatDate(pf.date)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(pf.totalGeral)}</td>
+                </tr>
+              ))}
+              {proformas.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-ink-400">
+                    Sem proformas associadas.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <div className="flex justify-end">
@@ -231,7 +235,7 @@ export default function ObraDetail() {
               <Field label="Nome da Obra">
                 <Input required value={form.obraName} onChange={(e) => setForm({ ...form, obraName: e.target.value })} />
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Localização">
                   <Input value={form.location || ''} onChange={(e) => setForm({ ...form, location: e.target.value })} />
                 </Field>
@@ -239,7 +243,7 @@ export default function ObraDetail() {
                   <Input value={form.contractNumber || ''} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Taxa de Retenção (%)" hint="Vazio = usar definição global">
                   <Input
                     type="number"

@@ -111,7 +111,7 @@ export default function ClientDetail() {
         }
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <Card className="p-4">
           <p className="text-xs uppercase tracking-wide text-ink-400">Total Obras</p>
           <p className="num mt-1 text-xl font-semibold">{clientSummary.totalObras}</p>
@@ -150,84 +150,88 @@ export default function ClientDetail() {
 
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Obras</h2>
       <Card className="overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Obra</th>
-              <th className="px-4 py-3 font-medium">Proforma</th>
-              <th className="px-4 py-3 font-medium text-right">Total</th>
-              <th className="px-4 py-3 font-medium text-right">Pago</th>
-              <th className="px-4 py-3 font-medium text-right">Restante</th>
-              <th className="px-4 py-3 font-medium">%</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {obraSummaries.map(({ obra, ...s }) => (
-              <tr
-                key={obra.id}
-                onClick={() => navigate(`/obras/${obra.id}`)}
-                className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
-              >
-                <td className="px-4 py-3 font-medium text-ink-800">{obra.obraName}</td>
-                <td className="px-4 py-3 num text-ink-500">{obra.proformaNumber || '—'}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(s.obraTotal)}</td>
-                <td className="px-4 py-3 num text-right text-moss-500">{formatKz(s.totalPaid)}</td>
-                <td className="px-4 py-3 num text-right text-clay-500">{formatKz(s.remaining)}</td>
-                <td className="px-4 py-3 num">{formatPercent(s.paidPercent)}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={s.status === 'Pago' ? 'moss' : s.status === 'Não Iniciado' ? 'ink' : 'gold'}>{s.status}</Badge>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Obra</th>
+                <th className="px-4 py-3 font-medium">Proforma</th>
+                <th className="px-4 py-3 font-medium text-right">Total</th>
+                <th className="px-4 py-3 font-medium text-right">Pago</th>
+                <th className="px-4 py-3 font-medium text-right">Restante</th>
+                <th className="px-4 py-3 font-medium">%</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
               </tr>
-            ))}
-            {obraSummaries.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
-                  Este cliente ainda não tem obras.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {obraSummaries.map(({ obra, ...s }) => (
+                <tr
+                  key={obra.id}
+                  onClick={() => navigate(`/obras/${obra.id}`)}
+                  className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
+                >
+                  <td className="px-4 py-3 font-medium text-ink-800">{obra.obraName}</td>
+                  <td className="px-4 py-3 num text-ink-500">{obra.proformaNumber || '—'}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(s.obraTotal)}</td>
+                  <td className="px-4 py-3 num text-right text-moss-500">{formatKz(s.totalPaid)}</td>
+                  <td className="px-4 py-3 num text-right text-clay-500">{formatKz(s.remaining)}</td>
+                  <td className="px-4 py-3 num">{formatPercent(s.paidPercent)}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={s.status === 'Pago' ? 'moss' : s.status === 'Não Iniciado' ? 'ink' : 'gold'}>{s.status}</Badge>
+                  </td>
+                </tr>
+              ))}
+              {obraSummaries.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
+                    Este cliente ainda não tem obras.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Extrato de Pagamentos</h2>
       <Card className="overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
-              <th className="px-4 py-3 font-medium">Obra</th>
-              <th className="px-4 py-3 font-medium">Proforma</th>
-              <th className="px-4 py-3 font-medium text-right">Total Obra</th>
-              <th className="px-4 py-3 font-medium text-right">Pagamento</th>
-              <th className="px-4 py-3 font-medium">Data</th>
-              <th className="px-4 py-3 font-medium text-right">Total Pago</th>
-              <th className="px-4 py-3 font-medium text-right">Restante</th>
-              <th className="px-4 py-3 font-medium">Pago %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {statementRows.map((r, i) => (
-              <tr key={i} className="border-b border-ink-50 last:border-0">
-                <td className="px-4 py-3 text-ink-700">{r.obraName}</td>
-                <td className="px-4 py-3 num text-ink-500">{r.proformaNumber || '—'}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.obraTotal)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.paymentAmount)}</td>
-                <td className="px-4 py-3 num">{formatDate(r.paymentDate)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.totalPaidAfter)}</td>
-                <td className="px-4 py-3 num text-right">{formatKz(r.remainingAfter)}</td>
-                <td className="px-4 py-3 num">{formatPercent(r.cumulativePercent)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[820px]">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3 font-medium">Obra</th>
+                <th className="px-4 py-3 font-medium">Proforma</th>
+                <th className="px-4 py-3 font-medium text-right">Total Obra</th>
+                <th className="px-4 py-3 font-medium text-right">Pagamento</th>
+                <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium text-right">Total Pago</th>
+                <th className="px-4 py-3 font-medium text-right">Restante</th>
+                <th className="px-4 py-3 font-medium">Pago %</th>
               </tr>
-            ))}
-            {statementRows.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-ink-400">
-                  Sem pagamentos registados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {statementRows.map((r, i) => (
+                <tr key={i} className="border-b border-ink-50 last:border-0">
+                  <td className="px-4 py-3 text-ink-700">{r.obraName}</td>
+                  <td className="px-4 py-3 num text-ink-500">{r.proformaNumber || '—'}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.obraTotal)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.paymentAmount)}</td>
+                  <td className="px-4 py-3 num">{formatDate(r.paymentDate)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.totalPaidAfter)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(r.remainingAfter)}</td>
+                  <td className="px-4 py-3 num">{formatPercent(r.cumulativePercent)}</td>
+                </tr>
+              ))}
+              {statementRows.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-ink-400">
+                    Sem pagamentos registados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <div className="flex justify-end">
