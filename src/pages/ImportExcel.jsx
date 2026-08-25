@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { UploadCloud, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { readWorkbook, sheetToRows, mapRows, IMPORT_TARGET_FIELDS, detectDuplicates } from '../lib/excel.js'
-import { Collections, batchCreate, listAll } from '../lib/db.js'
+import { Collections, batchCreate, listAll, updateOne } from '../lib/db.js'
 import PageHeader from '../components/PageHeader.jsx'
 import { Badge, Button, Card, Field, Select } from '../components/ui.jsx'
 
@@ -54,16 +54,31 @@ export default function ImportExcel() {
     setImporting(true)
     setDone(0)
     try {
-      const toImport = previewRows
-        .map((r, i) => ({ row: r, action: rowActions[i] }))
-        .filter(({ action }) => action === 'import' || action === 'update')
-        .map(({ row }) => {
-          const { isDuplicate, ...rest } = row
-          return rest
-        })
+      // "Importar" -> cria um registo novo.
+      // "Atualizar" -> atualiza o registo existente (existingId, vindo de detectDuplicates)
+      //                em vez de criar um duplicado.
+      // Se "Atualizar" for escolhido numa linha que afinal não tem duplicado correspondente,
+      // cai para criação, para nunca perder a linha.
+      const toCreate = []
+      const toUpdate = []
 
-      await batchCreate(targetCollection, toImport)
-      setDone(toImport.length)
+      previewRows.forEach((r, i) => {
+        const action = rowActions[i]
+        if (action !== 'import' && action !== 'update') return
+        const { isDuplicate, existingId, ...rest } = r
+        if (action === 'update' && existingId) {
+          toUpdate.push({ id: existingId, data: rest })
+        } else {
+          toCreate.push(rest)
+        }
+      })
+
+      if (toCreate.length) await batchCreate(targetCollection, toCreate)
+      if (toUpdate.length) {
+        await Promise.all(toUpdate.map(({ id, data }) => updateOne(targetCollection, id, data)))
+      }
+
+      setDone(toCreate.length + toUpdate.length)
       setStep(4)
     } finally {
       setImporting(false)
