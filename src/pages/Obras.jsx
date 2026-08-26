@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, UploadCloud, AlertTriangle } from 'lucide-react'
 import { Collections, createOne, subscribeAll, getSettings } from '../lib/db.js'
 import { computeObraSummary, calculateProformaTotals } from '../lib/calc.js'
 import { formatKz, formatPercent, todayISO } from '../lib/format.js'
+import { readWorkbook } from '../lib/excel.js'
+import { parseProformaExcel } from '../lib/proformaImport.js'
 import PageHeader from '../components/PageHeader.jsx'
 import { Badge, Button, Card, Field, Input, Select, TextArea } from '../components/ui.jsx'
 
@@ -34,6 +36,9 @@ export default function Obras() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState('')
+  const [importWarnings, setImportWarnings] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -47,6 +52,64 @@ export default function Obras() {
   }, [])
 
   const clientMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients])
+
+  function normalizeName(v) {
+    return String(v || '').trim().toLowerCase()
+  }
+
+  function openForm() {
+    setForm(EMPTY)
+    setImportError('')
+    setImportWarnings([])
+    setShowForm(true)
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportError('')
+    setImportWarnings([])
+    setImporting(true)
+    try {
+      const workbook = await readWorkbook(file)
+      const parsed = parseProformaExcel(workbook)
+
+      const matchedClient = clients.find((c) => normalizeName(c.clientName) === normalizeName(parsed.clientName))
+
+      const warnings = []
+      if (parsed.clientName && !matchedClient) {
+        warnings.push(`Cliente "${parsed.clientName}" não foi encontrado — crie-o primeiro ou selecione manualmente.`)
+      }
+      if (!parsed.items.length && parsed.totalMaterial == null) {
+        warnings.push('Não foi possível identificar os totais desta Proforma. Confira o modelo.')
+      }
+
+      // Quando a Proforma discrimina itens mas não indica "Total Material" no resumo,
+      // usamos a soma dos itens como aproximação.
+      const itemsTotal = parsed.items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.rate) || 0), 0)
+      const totalMaterial = parsed.totalMaterial != null ? parsed.totalMaterial : itemsTotal
+
+      setForm((f) => ({
+        ...f,
+        obraName: parsed.obraName || f.obraName,
+        clientId: matchedClient?.id || f.clientId,
+        location: parsed.location || f.location,
+        contractNumber: parsed.proformaNumber || f.contractNumber,
+        totalMaterial: totalMaterial != null ? String(totalMaterial) : f.totalMaterial,
+        totalMaoDeObra: parsed.totalMaoDeObra != null ? String(parsed.totalMaoDeObra) : f.totalMaoDeObra,
+        ivaRate: parsed.ivaRate != null ? String(parsed.ivaRate) : f.ivaRate,
+        startDate: parsed.date || f.startDate,
+        notes: parsed.paymentTerms ? `Condições de pagamento: ${parsed.paymentTerms}` : f.notes
+      }))
+
+      setImportWarnings(warnings)
+    } catch (err) {
+      setImportError('Não foi possível ler este ficheiro. Confirme que é um .xlsx no modelo habitual da Proforma.')
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
 
   const rows = useMemo(() => {
     return obras
@@ -100,7 +163,7 @@ export default function Obras() {
         title="Obras"
         subtitle={`${obras.length} obra(s) registadas`}
         actions={
-          <Button variant="gold" onClick={() => setShowForm(true)}>
+          <Button variant="gold" onClick={openForm}>
             <Plus size={16} /> Nova Obra
           </Button>
         }
@@ -177,6 +240,32 @@ export default function Obras() {
               <button onClick={() => setShowForm(false)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
+            </div>
+            <div className="mb-4 rounded-md border border-dashed border-ink-200 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-700">Importar de Excel</h3>
+                  <p className="mt-0.5 text-xs text-ink-400">
+                    Carregue o ficheiro .xlsx da Proforma (modelo Khaled Sham) para preencher a Obra automaticamente.
+                  </p>
+                </div>
+                <label className="cursor-pointer">
+                  <span className="inline-flex items-center gap-2 rounded-md bg-gold-400 px-3 py-1.5 text-xs font-medium text-ink-900 hover:bg-gold-300">
+                    <UploadCloud size={14} /> {importing ? 'A ler…' : 'Escolher Ficheiro'}
+                  </span>
+                  <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} disabled={importing} />
+                </label>
+              </div>
+              {importError && <p className="mt-3 text-sm text-clay-500">{importError}</p>}
+              {importWarnings.length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm text-clay-500">
+                  {importWarnings.map((w, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {w}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
