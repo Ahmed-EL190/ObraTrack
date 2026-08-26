@@ -29,6 +29,7 @@ import {
 
 import { readWorkbook } from '../lib/excel.js'
 import { parseProformaExcel } from '../lib/proformaImport.js'
+import { findBestNameMatch, AUTO_MATCH_THRESHOLD } from '../lib/nameMatch.js'
 
 import PageHeader from '../components/PageHeader.jsx'
 
@@ -551,18 +552,33 @@ export default function Obras() {
 
           /* -----------------------------------------
              Cliente
+             (mesma correspondência "aproximada" usada nos outros
+             pontos de importação — tolera acentos, letras trocadas
+             e nomes incompletos, em vez de exigir 100% igual)
           ----------------------------------------- */
 
-          const matchedClient =
-            clients.find(
-              (c) =>
-                normalizeName(
-                  c.clientName
-                ) ===
-                normalizeName(
-                  parsed.clientName
-                )
+          const clientMatch =
+            findBestNameMatch(
+              parsed.clientName,
+              clients,
+              (c) => c.clientName
             )
+
+          const matchedClient =
+            clientMatch && clientMatch.score >= AUTO_MATCH_THRESHOLD
+              ? clientMatch.item
+              : null
+
+          if (
+            parsed.clientName &&
+            !matchedClient
+          ) {
+            warnings.push(
+              clientMatch && clientMatch.score >= 0.4
+                ? `${file.name}: cliente "${parsed.clientName}" não foi associado com confiança (mais parecido: "${clientMatch.item.clientName}") — associe manualmente na Obra.`
+                : `${file.name}: cliente "${parsed.clientName}" não foi encontrado — associe manualmente na Obra.`
+            )
+          }
 
 
           /* -----------------------------------------
