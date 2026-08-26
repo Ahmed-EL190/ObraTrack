@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FileDown, Plus } from 'lucide-react'
+import { ArrowLeft, FileDown, Plus, UploadCloud, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import {
   Collections,
+  createOne,
   getOne,
   getPaymentsByObra,
   getProformasByObra,
@@ -10,12 +11,37 @@ import {
   removeOne,
   updateOne
 } from '../lib/db.js'
-import { computeObraSummary } from '../lib/calc.js'
-import { formatKz, formatPercent, formatDate } from '../lib/format.js'
+import { computeObraSummary, calculateProformaTotals, round2 } from '../lib/calc.js'
+import { formatKz, formatPercent, formatDate, todayISO } from '../lib/format.js'
 import { exportObraStatementPDF } from '../lib/pdf.js'
+import { readWorkbook } from '../lib/excel.js'
+import { parseProformaExcel } from '../lib/proformaImport.js'
 import PageHeader from '../components/PageHeader.jsx'
 import ProgressRing from '../components/ProgressRing.jsx'
 import { Badge, Button, Card, Field, Input, Select, TextArea } from '../components/ui.jsx'
+
+/** Mesmo cálculo usado no formulário de Proforma individual: separa itens de "Mão
+ *  de Obra" dos de "Material" pela Secção, e usa o valor manual de Mão de Obra
+ *  quando o ficheiro o traz como valor fixo no resumo. */
+function buildProformaTotals(parsed, defaultIvaRate) {
+  const items = parsed.items.map((it) => ({
+    ...it,
+    amount: round2((Number(it.quantity) || 0) * (Number(it.rate) || 0))
+  }))
+  const itemsMaoDeObra = items
+    .filter((it) => /mão de obra|mao de obra/i.test(it.section || ''))
+    .reduce((sum, it) => sum + it.amount, 0)
+  const itemsMaterial = items
+    .filter((it) => !/mão de obra|mao de obra/i.test(it.section || ''))
+    .reduce((sum, it) => sum + it.amount, 0)
+
+  const totalMaterial = parsed.totalMaterial != null ? parsed.totalMaterial : itemsMaterial
+  const totalMaoDeObra = parsed.totalMaoDeObra != null ? parsed.totalMaoDeObra : itemsMaoDeObra
+  const ivaRate = parsed.ivaRate != null ? parsed.ivaRate : defaultIvaRate
+
+  const totals = calculateProformaTotals({ totalMaterial, totalMaoDeObra, ivaRate })
+  return { items, totalMaterial: round2(totalMaterial), totalMaoDeObra: round2(totalMaoDeObra), ivaRate, totals }
+}
 
 export default function ObraDetail() {
   const { id } = useParams()
@@ -28,6 +54,8 @@ export default function ObraDetail() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(null)
+  const [importingProformas, setImportingProformas] = useState(false)
+  const [importResult, setImportResult] = useState(null) // { done, warnings }
 
   useEffect(() => {
     async function load() {
@@ -71,6 +99,83 @@ export default function ObraDetail() {
     navigate('/obras')
   }
 
+  async function handleImportProformas(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setImportingProformas(true)
+    setImportResult(null)
+    const warnings = []
+    let done = 0
+    try {
+      for (const file of files) {
+        try {
+          const workbook = await readWorkbook(file)
+          const parsed = parseProformaExcel(workbook)
+
+          if (!parsed.proformaNumber) {
+            warnings.push(`${file.name}: número da Proforma não identificado — ficheiro ignorado.`)
+            continue
+          }
+
+          const { items, totalMaterial, totalMaoDeObra, ivaRate, totals } = buildProformaTotals(
+            parsed,
+            settings.defaultIvaRate ?? 14
+          )
+
+          const payload = {
+            proformaNumber: parsed.proformaNumber,
+            date: parsed.date || todayISO(),
+            clientId: obra.clientId,
+            clientName: client?.clientName || parsed.clientName || '',
+            nif: client?.nif || parsed.nif || '',
+            obraId: id,
+            obraName: obra.obraName,
+            location: parsed.location || obra.location || '',
+            paymentTerms: parsed.paymentTerms || '',
+            ivaRate,
+            maoDeObraMode: parsed.totalMaoDeObra != null ? 'manual' : 'items',
+            manualMaoDeObra: parsed.totalMaoDeObra != null ? parsed.totalMaoDeObra : '',
+            totalMaterial,
+            totalMaoDeObra,
+            ivaAmount: totals.ivaAmount,
+            totalGeral: totals.totalGeral
+          }
+
+          const proformaId = await createOne(Collections.PROFORMAS, payload)
+
+          await Promise.all(
+            items
+              .filter((it) => it.description)
+              .map((it) =>
+                createOne(Collections.PROFORMA_ITEMS, {
+                  proformaId,
+                  section: it.section,
+                  itemNo: it.itemNo,
+                  description: it.description,
+                  unit: it.unit,
+                  quantity: Number(it.quantity) || 0,
+                  rate: Number(it.rate) || 0,
+                  amount: it.amount
+                })
+              )
+          )
+
+          done += 1
+        } catch (err) {
+          console.error('Erro ao importar', file.name, err)
+          warnings.push(`${file.name}: não foi possível ler este ficheiro (.xlsx inválido ou modelo diferente).`)
+        }
+      }
+
+      const refreshed = await getProformasByObra(id)
+      setProformas(refreshed)
+      setImportResult({ done, warnings })
+    } finally {
+      setImportingProformas(false)
+      e.target.value = ''
+    }
+  }
+
   if (loading || !obra || !summary) return <div className="text-ink-400">A carregar…</div>
 
   const effectiveRate = obra.retentionRate ?? settings.defaultRetentionRate
@@ -93,6 +198,19 @@ export default function ObraDetail() {
             <Button variant="outline" onClick={() => exportObraStatementPDF(obra, client, summary)}>
               <FileDown size={16} /> Extrato PDF
             </Button>
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center gap-2 rounded-md border border-ink-200 px-3 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50">
+                <UploadCloud size={16} /> {importingProformas ? 'A importar…' : 'Importar Proformas'}
+              </span>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                multiple
+                className="hidden"
+                onChange={handleImportProformas}
+                disabled={importingProformas}
+              />
+            </label>
             <Button variant="gold" onClick={() => navigate(`/pagamentos/novo?obraId=${id}&clientId=${obra.clientId}`)}>
               <Plus size={16} /> Novo Pagamento
             </Button>
@@ -187,6 +305,24 @@ export default function ObraDetail() {
       </Card>
 
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Proformas</h2>
+      {importResult && (
+        <div className="mb-3 space-y-2">
+          {importResult.done > 0 && (
+            <div className="flex items-start gap-2 rounded-md bg-moss-50 p-3 text-sm text-moss-600">
+              <CheckCircle2 size={16} className="mt-0.5 shrink-0" /> {importResult.done} proforma(s) importada(s) com sucesso.
+            </div>
+          )}
+          {importResult.warnings.length > 0 && (
+            <div className="rounded-md bg-clay-50 p-3 text-sm text-clay-600">
+              {importResult.warnings.map((w, i) => (
+                <p key={i} className="flex items-start gap-1.5">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {w}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <Card className="overflow-hidden mb-8">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[420px]">
