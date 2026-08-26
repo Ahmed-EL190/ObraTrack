@@ -25,6 +25,12 @@ function normalizeLabel(v) {
   return cellText(v).toLowerCase()
 }
 
+/** Remove acentos ("ó" -> "o", "ã" -> "a", etc.) — usado só para RECONHECER rótulos
+ *  (ex.: "Pró-Forma" vs "Pro-Forma"), nunca para alterar o valor extraído. */
+function stripAccents(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
 /** Converte "25/08/2026" -> "2026-08-25" (formato esperado pelo <input type="date">). */
 function ddmmyyyyToISO(str) {
   const m = cellText(str).match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/)
@@ -101,16 +107,24 @@ export function parseProformaExcel(workbook) {
         result.location = cellText(row[j + 1]) || extractAfterLabel(text, ['local'])
       } else if (lower.includes('nif')) {
         result.nif = extractAfterLabel(text, ['nif'])
-      } else if (lower.includes('pro-forma') || lower.includes('proforma')) {
-        result.proformaNumber = extractAfterLabel(text, [
-          'pro-forma nº',
-          'pro forma nº',
-          'proforma nº',
-          'pro-forma no',
-          'proforma no'
-        ])
-      } else if (lower.startsWith('date') && !lower.includes('validade')) {
-        result.date = ddmmyyyyToISO(extractAfterLabel(text, ['date']))
+      } else if (
+        !stripAccents(lower).includes('validade') &&
+        /pro[\s-]?forma/.test(stripAccents(lower))
+      ) {
+        // O rótulo varia de ficheiro para ficheiro: "Pro-Forma Nº: X", "Nº Pró-Forma: X",
+        // com ou sem acento, "Nº"/"No"/"N°". Em vez de tentar prever cada combinação de
+        // ordem das palavras, extraímos tudo o que vem depois dos ":" quando existem —
+        // é o formato mais fiável neste modelo — com fallback para o padrão antigo.
+        const afterColon = text.includes(':') ? text.split(':').pop().trim() : ''
+        result.proformaNumber =
+          afterColon ||
+          extractAfterLabel(stripAccents(text), [
+            'pro[\\s-]?forma\\s*n[ºo°]?\\.?',
+            'n[ºo°]?\\.?\\s*pro[\\s-]?forma'
+          ])
+      } else if ((lower.startsWith('date') || lower.startsWith('data')) && !lower.includes('validade')) {
+        // O modelo real usa "DATA" (português), não "Date" (inglês) — as duas são aceites.
+        result.date = ddmmyyyyToISO(extractAfterLabel(text, ['date', 'data']))
       } else if (lower.includes('formas de pagamento')) {
         result.paymentTerms = text.replace(/formas de pagamento/i, '').replace(/^[\s:]+/, '').trim()
       } else if (lower.includes('item no') || lower.includes('item nº')) {
