@@ -14,6 +14,7 @@ import PaymentForm from './pages/PaymentForm.jsx'
 import Reports from './pages/Reports.jsx'
 import ImportExcel from './pages/ImportExcel.jsx'
 import Settings from './pages/Settings.jsx'
+import BulkProformaImport from './pages/BulkProformaImport.jsx'
 
 function Protected({ children }) {
   const { user, loading } = useAuth()
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="importar" element={<ImportExcel />} />
         <Route path="definicoes" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="proformas/importar-varios" element={<BulkProformaImport />} />
       </Route>
     </Routes>
   )

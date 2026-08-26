@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, UploadCloud } from 'lucide-react'
 import { Collections, subscribeAll } from '../lib/db.js'
 import { formatKz, formatDate } from '../lib/format.js'
 import PageHeader from '../components/PageHeader.jsx'
@@ -19,9 +19,14 @@ export default function Proformas() {
         title="Proformas"
         subtitle={`${proformas.length} proforma(s) registadas`}
         actions={
-          <Button variant="gold" onClick={() => navigate('/proformas/novo')}>
-            <Plus size={16} /> Nova Proforma
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => navigate('/proformas/importar-varios')}>
+              <UploadCloud size={16} /> Importar Várias
+            </Button>
+            <Button variant="gold" onClick={() => navigate('/proformas/novo')}>
+              <Plus size={16} /> Nova Proforma
+            </Button>
+          </>
         }
       />
 
