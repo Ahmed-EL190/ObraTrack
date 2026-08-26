@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FileDown, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileDown, Plus, Trash2, UploadCloud, AlertTriangle } from 'lucide-react'
 import {
   Collections,
   createOne,
@@ -14,6 +14,8 @@ import {
 import { calculateProformaTotals, round2 } from '../lib/calc.js'
 import { formatKz, todayISO } from '../lib/format.js'
 import { exportProformaPDF } from '../lib/pdf.js'
+import { readWorkbook } from '../lib/excel.js'
+import { parseProformaExcel } from '../lib/proformaImport.js'
 import PageHeader from '../components/PageHeader.jsx'
 import { Button, Card, Field, Input, Select } from '../components/ui.jsx'
 
@@ -49,10 +51,15 @@ export default function ProformaForm() {
     obraName: '',
     location: '',
     paymentTerms: '',
-    ivaRate: '14'
+    ivaRate: '14',
+    maoDeObraMode: 'items', // 'items' (soma pelos itens marcados "Mão de Obra") | 'manual' (valor fixo)
+    manualMaoDeObra: ''
   })
   const [items, setItems] = useState([newItem()])
   const [saving, setSaving] = useState(false)
+  const [importError, setImportError] = useState('')
+  const [importWarnings, setImportWarnings] = useState([])
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -75,7 +82,9 @@ export default function ProformaForm() {
             obraName: pf.obraName,
             location: pf.location,
             paymentTerms: pf.paymentTerms,
-            ivaRate: String(pf.ivaRate)
+            ivaRate: String(pf.ivaRate),
+            maoDeObraMode: pf.maoDeObraMode || 'items',
+            manualMaoDeObra: pf.manualMaoDeObra != null ? String(pf.manualMaoDeObra) : ''
           })
         }
         const its = await findWhere(Collections.PROFORMA_ITEMS, 'proformaId', '==', id)
@@ -109,9 +118,14 @@ export default function ProformaForm() {
   const totalMaterial = computedItems
     .filter((it) => !/mão de obra|mao de obra/i.test(it.section || ''))
     .reduce((sum, it) => sum + it.amount, 0)
-  const totalMaoDeObra = computedItems
+  const itemsMaoDeObra = computedItems
     .filter((it) => /mão de obra|mao de obra/i.test(it.section || ''))
     .reduce((sum, it) => sum + it.amount, 0)
+
+  // Em muitas Proformas reais o "Total Mão de Obra" não vem discriminado item a item —
+  // é escrito directamente como um valor fixo no resumo. Por isso este total também pode
+  // ser definido manualmente em vez de somado pelos itens da tabela.
+  const totalMaoDeObra = header.maoDeObraMode === 'manual' ? Number(header.manualMaoDeObra) || 0 : itemsMaoDeObra
 
   const totals = calculateProformaTotals({ totalMaterial, totalMaoDeObra, ivaRate: header.ivaRate })
 
@@ -122,6 +136,69 @@ export default function ProformaForm() {
   function handleObraChange(obraId) {
     const o = obras.find((x) => x.id === obraId)
     setHeader({ ...header, obraId, obraName: o?.obraName || '', location: o?.location || header.location })
+  }
+
+  function normalizeName(v) {
+    return String(v || '').trim().toLowerCase()
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportError('')
+    setImportWarnings([])
+    setImporting(true)
+    try {
+      const workbook = await readWorkbook(file)
+      const parsed = parseProformaExcel(workbook)
+
+      const matchedClient = clients.find((c) => normalizeName(c.clientName) === normalizeName(parsed.clientName))
+      const matchedObra = matchedClient
+        ? obras.find(
+            (o) => o.clientId === matchedClient.id && normalizeName(o.obraName) === normalizeName(parsed.obraName)
+          )
+        : null
+
+      const warnings = []
+      if (parsed.clientName && !matchedClient) {
+        warnings.push(`Cliente "${parsed.clientName}" não foi encontrado — crie-o primeiro ou selecione manualmente.`)
+      }
+      if (parsed.obraName && matchedClient && !matchedObra) {
+        warnings.push(`Obra "${parsed.obraName}" não foi encontrada para este cliente — crie-a primeiro ou selecione manualmente.`)
+      }
+      if (!parsed.items.length) {
+        warnings.push('Não foi possível identificar linhas de item na tabela deste ficheiro. Confira o modelo.')
+      }
+
+      setHeader((h) => ({
+        ...h,
+        proformaNumber: parsed.proformaNumber || h.proformaNumber,
+        date: parsed.date || h.date,
+        clientId: matchedClient?.id || '',
+        clientName: matchedClient?.clientName || parsed.clientName || h.clientName,
+        nif: matchedClient?.nif || parsed.nif || h.nif,
+        obraId: matchedObra?.id || '',
+        obraName: matchedObra?.obraName || parsed.obraName || h.obraName,
+        location: parsed.location || h.location,
+        paymentTerms: parsed.paymentTerms || h.paymentTerms,
+        ivaRate: parsed.ivaRate != null ? String(parsed.ivaRate) : h.ivaRate,
+        // O "Total Mão de Obra" da maioria das Proformas vem como valor fixo no resumo,
+        // não item a item — por isso a importação liga automaticamente o modo manual.
+        maoDeObraMode: parsed.totalMaoDeObra != null ? 'manual' : h.maoDeObraMode,
+        manualMaoDeObra: parsed.totalMaoDeObra != null ? String(parsed.totalMaoDeObra) : h.manualMaoDeObra
+      }))
+
+      if (parsed.items.length) {
+        setItems(parsed.items.map((it) => ({ ...it, _key: Math.random().toString(36).slice(2) })))
+      }
+
+      setImportWarnings(warnings)
+    } catch (err) {
+      setImportError('Não foi possível ler este ficheiro. Confirme que é um .xlsx no modelo habitual da Proforma.')
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
   }
 
   async function handleSave(e) {
@@ -206,6 +283,35 @@ export default function ProformaForm() {
       />
 
       <form onSubmit={handleSave} className="space-y-6">
+        {isNew && (
+          <Card className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="font-display text-sm font-semibold text-ink-700">Importar de Excel</h3>
+                <p className="mt-0.5 text-xs text-ink-400">
+                  Carregue o ficheiro .xlsx da Proforma (modelo Khaled Sham) para preencher tudo automaticamente.
+                </p>
+              </div>
+              <label className="cursor-pointer">
+                <span className="inline-flex items-center gap-2 rounded-md bg-gold-400 px-4 py-2 text-sm font-medium text-ink-900 hover:bg-gold-300">
+                  <UploadCloud size={16} /> {importing ? 'A ler…' : 'Escolher Ficheiro'}
+                </span>
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} disabled={importing} />
+              </label>
+            </div>
+            {importError && <p className="mt-3 text-sm text-clay-500">{importError}</p>}
+            {importWarnings.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm text-clay-500">
+                {importWarnings.map((w, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {w}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+
         <Card className="p-5 grid md:grid-cols-3 gap-4">
           <Field label="Número da Proforma *">
             <Input required value={header.proformaNumber} onChange={(e) => setHeader({ ...header, proformaNumber: e.target.value })} placeholder="KSL26-038" />
@@ -307,7 +413,25 @@ export default function ProformaForm() {
         </Card>
 
         <Card className="p-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 num">
+          <label className="mb-3 flex items-center gap-2 text-sm text-ink-600">
+            <input
+              type="checkbox"
+              checked={header.maoDeObraMode === 'manual'}
+              onChange={(e) => setHeader({ ...header, maoDeObraMode: e.target.checked ? 'manual' : 'items' })}
+            />
+            Definir "Total Mão de Obra" manualmente (em vez de somar pelos itens marcados "Mão de Obra")
+          </label>
+          {header.maoDeObraMode === 'manual' && (
+            <Field label="Total Mão de Obra (Kz) — manual" hint="Muitas Proformas não discriminam a Mão de Obra item a item.">
+              <Input
+                type="number"
+                step="0.01"
+                value={header.manualMaoDeObra}
+                onChange={(e) => setHeader({ ...header, manualMaoDeObra: e.target.value })}
+              />
+            </Field>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 num mt-4">
             <div>
               <p className="text-xs uppercase tracking-wide text-ink-400">Total Material</p>
               <p className="mt-1 text-lg font-semibold">{formatKz(totalMaterial)}</p>
