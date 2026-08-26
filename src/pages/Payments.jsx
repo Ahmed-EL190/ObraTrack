@@ -38,7 +38,8 @@ export default function Payments() {
       obraTotal: obra?.totalGeral ?? obra?.contractValue,
       totalMaoDeObra: obra?.totalMaoDeObra,
       paymentAmount: p.paymentAmount,
-      retentionRate: p.retentionRate ?? obra?.retentionRate ?? 0
+      retentionRate: p.retentionRate ?? obra?.retentionRate ?? 0,
+      retentionMode: p.retentionMode || 'proportional'
     })
     exportPaymentReceiptPDF(p, client, obra, calc)
   }

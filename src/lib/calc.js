@@ -24,8 +24,18 @@ export function round2(value) {
  * @param {number} params.totalMaoDeObra - Total Mão de Obra da Obra/Proforma
  * @param {number} params.paymentAmount - Valor deste pagamento
  * @param {number} params.retentionRate - Taxa de retenção em % (ex: 30 para 30%)
+ * @param {string} [params.retentionMode] - Como a retenção é aplicada a este pagamento:
+ *   'proportional' (padrão) - retenção calculada apenas sobre a fatia de Mão de Obra
+ *     correspondente a este pagamento (comportamento original).
+ *   'none' - este pagamento não gera retenção nenhuma (ex: cliente que só liquida a
+ *     retenção mais tarde, num pagamento à parte).
+ *   'full' - calcula a retenção sobre a Mão de Obra TOTAL do contrato de uma só vez
+ *     neste pagamento (ex: pagamento final onde o cliente liquida toda a retenção
+ *     acumulada). Deve ser usado normalmente uma única vez por Obra — se outros
+ *     pagamentos também tiverem retenção 'proportional' ou 'full', o total pode ficar
+ *     contado a dobrar.
  */
-export function calculatePayment({ obraTotal, totalMaoDeObra, paymentAmount, retentionRate }) {
+export function calculatePayment({ obraTotal, totalMaoDeObra, paymentAmount, retentionRate, retentionMode = 'proportional' }) {
   const safeObraTotal = Number(obraTotal) || 0
   const safeMaoDeObra = Number(totalMaoDeObra) || 0
   const safeAmount = Number(paymentAmount) || 0
@@ -33,12 +43,21 @@ export function calculatePayment({ obraTotal, totalMaoDeObra, paymentAmount, ret
 
   const paymentPercent = safeObraTotal > 0 ? (safeAmount / safeObraTotal) * 100 : 0
   const maoDeObraPortion = safeMaoDeObra * (paymentPercent / 100)
-  const retentionAmount = maoDeObraPortion * (safeRate / 100)
+
+  let retentionAmount
+  if (retentionMode === 'none') {
+    retentionAmount = 0
+  } else if (retentionMode === 'full') {
+    retentionAmount = safeMaoDeObra * (safeRate / 100)
+  } else {
+    retentionAmount = maoDeObraPortion * (safeRate / 100)
+  }
 
   return {
     paymentPercent: round2(paymentPercent),
     maoDeObraPortion: round2(maoDeObraPortion),
-    retentionAmount: round2(retentionAmount)
+    retentionAmount: round2(retentionAmount),
+    retentionMode
   }
 }
 
@@ -49,9 +68,11 @@ export function calculatePayment({ obraTotal, totalMaoDeObra, paymentAmount, ret
  * a taxa de retenção sobre o total acumulado.
  *
  * @param {Object} obra - deve conter obraTotal (totalGeral) e totalMaoDeObra
- * @param {Array} payments - lista de pagamentos { paymentAmount, paymentDate, retentionRate }
+ * @param {Array} payments - lista de pagamentos { paymentAmount, paymentDate, retentionRate, retentionMode }
  *   retentionRate pode variar por pagamento (ex: alterado a meio do contrato);
  *   se omitido, usa obra.retentionRate ou o valor global das definições.
+ *   retentionMode pode variar por pagamento ('proportional' | 'none' | 'full');
+ *   se omitido, assume 'proportional' (comportamento original).
  * @param {number} defaultRetentionRate - taxa a usar quando o pagamento não define uma
  */
 export function computeObraSummary(obra, payments, defaultRetentionRate = 0) {
@@ -69,11 +90,13 @@ export function computeObraSummary(obra, payments, defaultRetentionRate = 0) {
 
   const rows = sorted.map((p) => {
     const effectiveRate = p.retentionRate ?? rate
+    const effectiveMode = p.retentionMode || 'proportional'
     const calc = calculatePayment({
       obraTotal,
       totalMaoDeObra,
       paymentAmount: p.paymentAmount,
-      retentionRate: effectiveRate
+      retentionRate: effectiveRate,
+      retentionMode: effectiveMode
     })
 
     cumulativePaid = round2(cumulativePaid + Number(p.paymentAmount || 0))

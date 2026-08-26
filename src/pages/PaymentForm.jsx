@@ -36,7 +36,8 @@ export default function PaymentForm() {
     paymentReference: '',
     paymentMethod: 'Transferência Bancária',
     notes: '',
-    allowOverpayment: false
+    allowOverpayment: false,
+    retentionMode: 'proportional'
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -91,9 +92,10 @@ export default function PaymentForm() {
       obraTotal: selectedObra.totalGeral ?? selectedObra.contractValue,
       totalMaoDeObra: selectedObra.totalMaoDeObra,
       paymentAmount: form.paymentAmount,
-      retentionRate: effectiveRate
+      retentionRate: effectiveRate,
+      retentionMode: form.retentionMode
     })
-  }, [selectedObra, form.paymentAmount, effectiveRate])
+  }, [selectedObra, form.paymentAmount, effectiveRate, form.retentionMode])
 
   const newTotalPaid = (currentSummary?.totalPaid || 0) + (Number(form.paymentAmount) || 0)
   const obraTotalValue = currentSummary?.obraTotal || 0
@@ -127,7 +129,8 @@ export default function PaymentForm() {
         paymentReference: form.paymentReference,
         paymentMethod: form.paymentMethod,
         notes: form.notes,
-        retentionRate: effectiveRate
+        retentionRate: effectiveRate,
+        retentionMode: form.retentionMode
       })
       navigate(`/obras/${form.obraId}`)
     } finally {
@@ -218,6 +221,34 @@ export default function PaymentForm() {
               </Field>
             </div>
 
+            <Field
+              label="Retenção deste Pagamento"
+              hint="Controla como a retenção é calculada para este pagamento específico"
+            >
+              <Select
+                value={form.retentionMode}
+                onChange={(e) => setForm({ ...form, retentionMode: e.target.value })}
+              >
+                <option value="proportional">Proporcional a este pagamento (padrão)</option>
+                <option value="none">Sem retenção neste pagamento (cliente liquida depois)</option>
+                <option value="full">Liquidar a retenção total do contrato agora (pagamento final)</option>
+              </Select>
+              {form.retentionMode === 'none' && (
+                <p className="mt-1 text-xs text-ink-400">
+                  Este pagamento fica registado sem retenção. Não se esqueça de escolher "Liquidar a retenção total"
+                  no pagamento em que o cliente efetivamente pagar a retenção acumulada.
+                </p>
+              )}
+              {form.retentionMode === 'full' && (
+                <p className="mt-1 text-xs text-ink-400">
+                  Este pagamento vai contabilizar a retenção sobre TODA a Mão de Obra da Obra
+                  ({formatKz((selectedObra?.totalMaoDeObra || 0) * (effectiveRate / 100))}), não apenas a fatia deste
+                  pagamento. Use apenas uma vez por Obra, normalmente no pagamento final, para não contar a retenção
+                  a dobrar.
+                </p>
+              )}
+            </Field>
+
             <Field label="Notas">
               <TextArea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
@@ -271,7 +302,18 @@ export default function PaymentForm() {
               <Row label="Mão de Obra Total" value={formatKz(selectedObra.totalMaoDeObra)} />
               <Row label="Mão de Obra deste Pagamento" value={formatKz(preview?.maoDeObraPortion || 0)} />
               <Row label={`Taxa de Retenção`} value={formatPercent(effectiveRate)} />
-              <Row label="Retenção deste Pagamento" value={formatKz(preview?.retentionAmount || 0)} tone="gold" strong />
+              <Row
+                label={
+                  form.retentionMode === 'none'
+                    ? 'Retenção deste Pagamento (Nenhuma)'
+                    : form.retentionMode === 'full'
+                    ? 'Retenção deste Pagamento (Total do Contrato)'
+                    : 'Retenção deste Pagamento'
+                }
+                value={formatKz(preview?.retentionAmount || 0)}
+                tone="gold"
+                strong
+              />
             </div>
           )}
         </Card>
