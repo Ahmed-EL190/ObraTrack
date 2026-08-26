@@ -6,6 +6,7 @@ import { readWorkbook } from '../lib/excel.js'
 import { parseProformaExcel } from '../lib/proformaImport.js'
 import { calculateProformaTotals, round2 } from '../lib/calc.js'
 import { formatKz, todayISO } from '../lib/format.js'
+import { findBestNameMatch, AUTO_MATCH_THRESHOLD } from '../lib/nameMatch.js'
 import PageHeader from '../components/PageHeader.jsx'
 import { Badge, Button, Card, Select } from '../components/ui.jsx'
 
@@ -60,10 +61,16 @@ export default function BulkProformaImport() {
   }, [])
 
   function evaluateRow(fileName, parsed) {
-    const matchedClient = clients.find((c) => normalizeName(c.clientName) === normalizeName(parsed.clientName))
-    const matchedObra = matchedClient
-      ? obras.find((o) => o.clientId === matchedClient.id && normalizeName(o.obraName) === normalizeName(parsed.obraName))
-      : null
+    // Em vez de exigir que o nome do ficheiro seja idêntico letra a letra ao nome
+    // cadastrado, procuramos o cliente/obra mais parecido (tolera acentos, letras
+    // trocadas, e nomes incompletos como "Silva" em vez de "Empresa Silva Lda").
+    const clientMatch = findBestNameMatch(parsed.clientName, clients, (c) => c.clientName)
+    const matchedClient = clientMatch && clientMatch.score >= AUTO_MATCH_THRESHOLD ? clientMatch.item : null
+
+    const obraCandidates = matchedClient ? obras.filter((o) => o.clientId === matchedClient.id) : []
+    const obraMatch = findBestNameMatch(parsed.obraName, obraCandidates, (o) => o.obraName)
+    const matchedObra = obraMatch && obraMatch.score >= AUTO_MATCH_THRESHOLD ? obraMatch.item : null
+
     const isDuplicate = parsed.proformaNumber && existingNumbers.has(normalizeName(parsed.proformaNumber))
 
     let status = 'pronto'
@@ -73,10 +80,14 @@ export default function BulkProformaImport() {
       reason = 'Número da Proforma não identificado no ficheiro.'
     } else if (!matchedClient) {
       status = 'erro'
-      reason = `Cliente "${parsed.clientName || '—'}" não encontrado.`
+      reason = clientMatch && clientMatch.score >= 0.4
+        ? `Cliente "${parsed.clientName || '—'}" não encontrado (mais parecido: "${clientMatch.item.clientName}").`
+        : `Cliente "${parsed.clientName || '—'}" não encontrado.`
     } else if (!matchedObra) {
       status = 'erro'
-      reason = `Obra "${parsed.obraName || '—'}" não encontrada para este cliente.`
+      reason = obraMatch && obraMatch.score >= 0.4
+        ? `Obra "${parsed.obraName || '—'}" não encontrada (mais parecida: "${obraMatch.item.obraName}").`
+        : `Obra "${parsed.obraName || '—'}" não encontrada para este cliente.`
     } else if (isDuplicate) {
       status = 'duplicado'
       reason = 'Já existe uma Proforma com este número.'

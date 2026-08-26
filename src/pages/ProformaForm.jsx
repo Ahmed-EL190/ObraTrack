@@ -16,6 +16,7 @@ import { formatKz, todayISO } from '../lib/format.js'
 import { exportProformaPDF } from '../lib/pdf.js'
 import { readWorkbook } from '../lib/excel.js'
 import { parseProformaExcel } from '../lib/proformaImport.js'
+import { findBestNameMatch, AUTO_MATCH_THRESHOLD } from '../lib/nameMatch.js'
 import PageHeader from '../components/PageHeader.jsx'
 import { Button, Card, Field, Input, Select } from '../components/ui.jsx'
 
@@ -138,10 +139,6 @@ export default function ProformaForm() {
     setHeader({ ...header, obraId, obraName: o?.obraName || '', location: o?.location || header.location })
   }
 
-  function normalizeName(v) {
-    return String(v || '').trim().toLowerCase()
-  }
-
   async function handleImportFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -152,19 +149,30 @@ export default function ProformaForm() {
       const workbook = await readWorkbook(file)
       const parsed = parseProformaExcel(workbook)
 
-      const matchedClient = clients.find((c) => normalizeName(c.clientName) === normalizeName(parsed.clientName))
-      const matchedObra = matchedClient
-        ? obras.find(
-            (o) => o.clientId === matchedClient.id && normalizeName(o.obraName) === normalizeName(parsed.obraName)
-          )
-        : null
+      // Em vez de exigir nome idêntico letra a letra, procura o cliente/obra mais
+      // parecido (tolera acentos, letras trocadas, e nomes incompletos como
+      // "Silva" em vez de "Empresa Silva Lda").
+      const clientMatch = findBestNameMatch(parsed.clientName, clients, (c) => c.clientName)
+      const matchedClient = clientMatch && clientMatch.score >= AUTO_MATCH_THRESHOLD ? clientMatch.item : null
+
+      const obraCandidates = matchedClient ? obras.filter((o) => o.clientId === matchedClient.id) : []
+      const obraMatch = findBestNameMatch(parsed.obraName, obraCandidates, (o) => o.obraName)
+      const matchedObra = obraMatch && obraMatch.score >= AUTO_MATCH_THRESHOLD ? obraMatch.item : null
 
       const warnings = []
       if (parsed.clientName && !matchedClient) {
-        warnings.push(`Cliente "${parsed.clientName}" não foi encontrado — crie-o primeiro ou selecione manualmente.`)
+        warnings.push(
+          clientMatch && clientMatch.score >= 0.4
+            ? `Cliente "${parsed.clientName}" não foi encontrado (mais parecido: "${clientMatch.item.clientName}") — confirme ou selecione manualmente.`
+            : `Cliente "${parsed.clientName}" não foi encontrado — crie-o primeiro ou selecione manualmente.`
+        )
       }
       if (parsed.obraName && matchedClient && !matchedObra) {
-        warnings.push(`Obra "${parsed.obraName}" não foi encontrada para este cliente — crie-a primeiro ou selecione manualmente.`)
+        warnings.push(
+          obraMatch && obraMatch.score >= 0.4
+            ? `Obra "${parsed.obraName}" não foi encontrada (mais parecida: "${obraMatch.item.obraName}") — confirme ou selecione manualmente.`
+            : `Obra "${parsed.obraName}" não foi encontrada para este cliente — crie-a primeiro ou selecione manualmente.`
+        )
       }
       if (!parsed.items.length) {
         warnings.push('Não foi possível identificar linhas de item na tabela deste ficheiro. Confira o modelo.')
