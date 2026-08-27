@@ -19,6 +19,16 @@ import PageHeader from '../components/PageHeader.jsx'
 import StatCard from '../components/StatCard.jsx'
 import { Card } from '../components/ui.jsx'
 
+// Nomes de clientes/obras podem ser bem compridos (ex.: "INDUNUTRI INDUSTRIA
+// PRODUTOS ALIMENTARES"). Em vez de deixar o eixo quebrar o texto em várias
+// linhas — o que faz os rótulos de barras vizinhas colidirem quando o espaço
+// por barra é pequeno — cortamos com reticências. O nome completo continua a
+// aparecer no Tooltip ao passar o rato por cima da barra.
+function truncateLabel(name, max = 16) {
+  const str = String(name || '')
+  return str.length > max ? `${str.slice(0, max - 1)}…` : str
+}
+
 export default function Dashboard() {
   const [clients, setClients] = useState([])
   const [obras, setObras] = useState([])
@@ -96,13 +106,23 @@ export default function Dashboard() {
       .slice(0, 8)
   }, [summaries, clients])
 
+  const byObraProgress = useMemo(
+    () => summaries.map((s) => ({ name: s.obra.obraName, pct: s.paidPercent })),
+    [summaries]
+  )
+
+  // Cada barra precisa de altura suficiente para o rótulo — com muitas obras/
+  // clientes, o gráfico cresce em altura em vez de espremer as barras.
+  const byClientChartHeight = Math.max(260, byClient.length * 34)
+  const byObraChartHeight = Math.max(260, byObraProgress.length * 34)
+
   if (loading) return <div className="text-ink-400">A carregar painel…</div>
 
   return (
     <div>
       <PageHeader eyebrow="Visão Geral" title="Painel Financeiro" subtitle="Resumo de clientes, obras e pagamentos em Kwanzas (Kz)" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total de Clientes" value={clients.length} />
         <StatCard label="Total de Obras" value={obras.length} sub={`${activeCount} ativas · ${completedCount} pagas`} />
         <StatCard label="Valor Total das Obras" value={formatKz(totals.value)} />
@@ -146,14 +166,21 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-2 gap-4">
         <Card className="p-5">
           <h3 className="font-display text-sm font-semibold text-ink-700 mb-4">Em Aberto por Cliente</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={byClient} layout="vertical" margin={{ left: 20 }}>
+          <ResponsiveContainer width="100%" height={byClientChartHeight}>
+            <BarChart data={byClient} layout="vertical" margin={{ left: 8, right: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e6eaef" />
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={110}
+                interval={0}
+                tick={{ fontSize: 11 }}
+                tickFormatter={(name) => truncateLabel(name)}
+              />
               <Tooltip formatter={(v) => formatKz(v)} />
               <Bar dataKey="outstanding" fill="#b4552f" radius={[0, 4, 4, 0]} />
             </BarChart>
@@ -162,11 +189,18 @@ export default function Dashboard() {
 
         <Card className="p-5">
           <h3 className="font-display text-sm font-semibold text-ink-700 mb-4">Progresso de Pagamento por Obra</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={summaries.map((s) => ({ name: s.obra.obraName, pct: s.paidPercent }))} layout="vertical" margin={{ left: 20 }}>
+          <ResponsiveContainer width="100%" height={byObraChartHeight}>
+            <BarChart data={byObraProgress} layout="vertical" margin={{ left: 8, right: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e6eaef" />
               <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={110}
+                interval={0}
+                tick={{ fontSize: 11 }}
+                tickFormatter={(name) => truncateLabel(name)}
+              />
               <Tooltip formatter={(v) => `${v}%`} />
               <Bar dataKey="pct" fill="#42506a" radius={[0, 4, 4, 0]} />
             </BarChart>

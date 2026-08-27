@@ -47,7 +47,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contabilidade@empresa.co.ao"
-              className="bg-ink-800 border-ink-700 text-white placeholder:text-ink-500"
+              className="bg-ink-800 border-ink-700 text-black placeholder:text-ink-500"
             />
           </Field>
           <Field label="Palavra-passe">
@@ -57,7 +57,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="bg-ink-800 border-ink-700 text-white placeholder:text-ink-500"
+              className="bg-ink-800 border-ink-700 text-black placeholder:text-ink-500"
             />
           </Field>
           {error && <p className="text-sm text-clay-500">{error}</p>}
