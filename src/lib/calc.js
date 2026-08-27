@@ -153,6 +153,62 @@ export function computeClientSummary(obraSummaries) {
   )
 }
 
+/**
+ * Uma Obra pode ter várias Proformas (ex.: Proforma nº 1, 2 e 3). Um único
+ * pagamento pode cobrir todas, algumas, ou apenas uma delas — em qualquer
+ * combinação e com qualquer valor, não têm de ser divididas em partes iguais.
+ *
+ * Para isso, cada pagamento pode ter um campo `allocations`:
+ *   [{ proformaId, amount }, ...]
+ * indicando exatamente quanto desse pagamento foi aplicado a cada Proforma.
+ * A soma das alocações pode ser menor que o valor do pagamento — a diferença
+ * fica "não alocada" (conta só para o total geral da Obra, não para nenhuma
+ * Proforma específica).
+ *
+ * Pagamentos antigos, criados antes desta funcionalidade existir, não têm
+ * `allocations` — continuam a contar apenas para o total da Obra.
+ */
+export function computeProformaBalances(proformas, payments) {
+  const paidMap = {}
+
+  ;(payments || []).forEach((p) => {
+    if (Array.isArray(p.allocations) && p.allocations.length) {
+      p.allocations.forEach((a) => {
+        if (!a?.proformaId) return
+        paidMap[a.proformaId] = round2((paidMap[a.proformaId] || 0) + (Number(a.amount) || 0))
+      })
+    } else if (p.proformaId) {
+      // Compatibilidade com pagamentos antigos que só guardavam UMA proforma
+      // associada (sem divisão): conta o pagamento inteiro para essa proforma.
+      paidMap[p.proformaId] = round2((paidMap[p.proformaId] || 0) + (Number(p.paymentAmount) || 0))
+    }
+  })
+
+  const unallocated = round2(
+    (payments || []).reduce((sum, p) => {
+      if (Array.isArray(p.allocations) && p.allocations.length) {
+        const allocatedInThisPayment = p.allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0)
+        return sum + Math.max(0, (Number(p.paymentAmount) || 0) - allocatedInThisPayment)
+      }
+      if (!p.proformaId) return sum + (Number(p.paymentAmount) || 0)
+      return sum
+    }, 0)
+  )
+
+  const rows = (proformas || []).map((pf) => {
+    const total = Number(pf.totalGeral) || 0
+    const paidAmount = paidMap[pf.id] || 0
+    const remaining = round2(total - paidAmount)
+    let status = 'Não Pago'
+    if (paidAmount <= 0) status = 'Não Pago'
+    else if (remaining <= 0.01) status = 'Pago'
+    else status = 'Parcialmente Pago'
+    return { ...pf, total, paidAmount, remaining, status }
+  })
+
+  return { rows, unallocated }
+}
+
 /** IVA: Subtotal = Material + Mão de Obra; IVA = Subtotal × taxa; Total Geral = Subtotal + IVA */
 export function calculateProformaTotals({ totalMaterial, totalMaoDeObra, ivaRate }) {
   const material = Number(totalMaterial) || 0

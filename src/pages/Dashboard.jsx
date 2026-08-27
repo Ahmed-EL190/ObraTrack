@@ -12,6 +12,19 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
+import {
+  Users,
+  HardHat,
+  Landmark,
+  Wallet,
+  AlertTriangle,
+  ShieldCheck,
+  Percent,
+  CheckCircle2,
+  PieChart as PieIcon,
+  BarChart3,
+  LayoutDashboard
+} from 'lucide-react'
 import { Collections, listAll, getSettings } from '../lib/db.js'
 import { computeObraSummary } from '../lib/calc.js'
 import { formatKz, formatPercent } from '../lib/format.js'
@@ -120,25 +133,33 @@ export default function Dashboard() {
 
   return (
     <div>
-      <PageHeader eyebrow="Visão Geral" title="Painel Financeiro" subtitle="Resumo de clientes, obras e pagamentos em Kwanzas (Kz)" />
+      <PageHeader
+        icon={LayoutDashboard}
+        eyebrow="Visão Geral"
+        title="Painel Financeiro"
+        subtitle="Resumo de clientes, obras e pagamentos em Kwanzas (Kz)"
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total de Clientes" value={clients.length} />
-        <StatCard label="Total de Obras" value={obras.length} sub={`${activeCount} ativas · ${completedCount} pagas`} />
-        <StatCard label="Valor Total das Obras" value={formatKz(totals.value)} />
-        <StatCard label="Total Recebido" value={formatKz(totals.paid)} tone="moss" />
-        <StatCard label="Total em Aberto" value={formatKz(totals.outstanding)} tone="clay" />
-        <StatCard label="Retenção Acumulada" value={formatKz(totals.retention)} tone="gold" />
+        <StatCard icon={Users} label="Total de Clientes" value={clients.length} />
+        <StatCard icon={HardHat} label="Total de Obras" value={obras.length} sub={`${activeCount} ativas · ${completedCount} pagas`} />
+        <StatCard icon={Landmark} label="Valor Total das Obras" value={formatKz(totals.value)} />
+        <StatCard icon={Wallet} label="Total Recebido" value={formatKz(totals.paid)} tone="moss" />
+        <StatCard icon={AlertTriangle} label="Total em Aberto" value={formatKz(totals.outstanding)} tone="clay" />
+        <StatCard icon={ShieldCheck} label="Retenção Acumulada" value={formatKz(totals.retention)} tone="gold" />
         <StatCard
+          icon={Percent}
           label="Progresso Geral de Pagamento"
           value={totals.value > 0 ? formatPercent((totals.paid / totals.value) * 100) : '0%'}
         />
-        <StatCard label="Obras Concluídas (Pagas)" value={completedCount} />
+        <StatCard icon={CheckCircle2} label="Obras Concluídas (Pagas)" value={completedCount} tone="moss" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         <Card className="p-5">
-          <h3 className="font-display text-sm font-semibold text-ink-700 mb-4">Pago vs. Em Aberto</h3>
+          <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-ink-700 mb-4">
+            <PieIcon size={15} className="text-gold-500" /> Pago vs. Em Aberto
+          </h3>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={paidVsOutstanding} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} paddingAngle={2}>
@@ -153,7 +174,9 @@ export default function Dashboard() {
         </Card>
 
         <Card className="p-5">
-          <h3 className="font-display text-sm font-semibold text-ink-700 mb-4">Pagamentos por Mês</h3>
+          <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-ink-700 mb-4">
+            <BarChart3 size={15} className="text-gold-500" /> Pagamentos por Mês
+          </h3>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={byMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e6eaef" />
@@ -168,7 +191,9 @@ export default function Dashboard() {
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card className="p-5">
-          <h3 className="font-display text-sm font-semibold text-ink-700 mb-4">Em Aberto por Cliente</h3>
+          <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-ink-700 mb-4">
+            <Users size={15} className="text-gold-500" /> Em Aberto por Cliente
+          </h3>
           <ResponsiveContainer width="100%" height={byClientChartHeight}>
             <BarChart data={byClient} layout="vertical" margin={{ left: 8, right: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e6eaef" />
@@ -188,7 +213,9 @@ export default function Dashboard() {
         </Card>
 
         <Card className="p-5">
-          <h3 className="font-display text-sm font-semibold text-ink-700 mb-4">Progresso de Pagamento por Obra</h3>
+          <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-ink-700 mb-4">
+            <HardHat size={15} className="text-gold-500" /> Progresso de Pagamento por Obra
+          </h3>
           <ResponsiveContainer width="100%" height={byObraChartHeight}>
             <BarChart data={byObraProgress} layout="vertical" margin={{ left: 8, right: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e6eaef" />

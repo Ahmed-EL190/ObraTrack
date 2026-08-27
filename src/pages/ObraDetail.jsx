@@ -10,7 +10,7 @@ import {
   removeOne,
   updateOne
 } from '../lib/db.js'
-import { computeObraSummary } from '../lib/calc.js'
+import { computeObraSummary, computeProformaBalances } from '../lib/calc.js'
 import { formatKz, formatPercent, formatDate } from '../lib/format.js'
 import { exportObraStatementPDF } from '../lib/pdf.js'
 import PageHeader from '../components/PageHeader.jsx'
@@ -53,6 +53,11 @@ export default function ObraDetail() {
     if (!obra) return null
     return computeObraSummary(obra, payments, settings.defaultRetentionRate)
   }, [obra, payments, settings])
+
+  // Estado de pagamento de cada Proforma individualmente — mostra se a
+  // Proforma nº 1, 2, 3... já está paga, parcialmente paga ou nada foi
+  // alocado a ela ainda, mesmo quando um único pagamento cobre várias.
+  const proformaBalances = useMemo(() => computeProformaBalances(proformas, payments), [proformas, payments])
 
   async function saveEdit(e) {
     e.preventDefault()
@@ -150,11 +155,12 @@ export default function ObraDetail() {
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Histórico de Pagamentos</h2>
       <Card className="overflow-hidden mb-8">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[820px]">
+          <table className="w-full text-sm min-w-[960px]">
             <thead>
               <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
                 <th className="px-4 py-3 font-medium">Data</th>
                 <th className="px-4 py-3 font-medium text-right">Pagamento</th>
+                <th className="px-4 py-3 font-medium">Proforma(s)</th>
                 <th className="px-4 py-3 font-medium">%</th>
                 <th className="px-4 py-3 font-medium">% Acumulada</th>
                 <th className="px-4 py-3 font-medium text-right">Mão de Obra</th>
@@ -167,6 +173,19 @@ export default function ObraDetail() {
                 <tr key={r.id || i} className="border-b border-ink-50 last:border-0">
                   <td className="px-4 py-3 num">{formatDate(r.paymentDate)}</td>
                   <td className="px-4 py-3 num text-right">{formatKz(r.paymentAmount)}</td>
+                  <td className="px-4 py-3 text-xs text-ink-500">
+                    {Array.isArray(r.allocations) && r.allocations.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {r.allocations.map((a, idx) => (
+                          <span key={idx} className="num">
+                            {a.proformaNumber || '—'}: {formatKz(a.amount)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-ink-300">Geral (sem proforma)</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 num">{formatPercent(r.paymentPercent)}</td>
                   <td className="px-4 py-3 num">{formatPercent(r.cumulativePercent)}</td>
                   <td className="px-4 py-3 num text-right">{formatKz(r.maoDeObraPortion)}</td>
@@ -176,7 +195,7 @@ export default function ObraDetail() {
               ))}
               {summary.rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-ink-400">
+                  <td colSpan={8} className="px-4 py-10 text-center text-ink-400">
                     Sem pagamentos registados para esta obra.
                   </td>
                 </tr>
@@ -187,18 +206,21 @@ export default function ObraDetail() {
       </Card>
 
       <h2 className="font-display text-base font-semibold text-ink-800 mb-3">Proformas</h2>
-      <Card className="overflow-hidden mb-8">
+      <Card className="overflow-hidden mb-2">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[420px]">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wide text-ink-400">
                 <th className="px-4 py-3 font-medium">Número</th>
                 <th className="px-4 py-3 font-medium">Data</th>
                 <th className="px-4 py-3 font-medium text-right">Total Geral</th>
+                <th className="px-4 py-3 font-medium text-right">Pago</th>
+                <th className="px-4 py-3 font-medium text-right">Restante</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
               </tr>
             </thead>
             <tbody>
-              {proformas.map((pf) => (
+              {proformaBalances.rows.map((pf) => (
                 <tr
                   key={pf.id}
                   onClick={() => navigate(`/proformas/${pf.id}`)}
@@ -206,12 +228,19 @@ export default function ObraDetail() {
                 >
                   <td className="px-4 py-3 num text-ink-800">{pf.proformaNumber}</td>
                   <td className="px-4 py-3 num">{formatDate(pf.date)}</td>
-                  <td className="px-4 py-3 num text-right">{formatKz(pf.totalGeral)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(pf.total)}</td>
+                  <td className="px-4 py-3 num text-right text-moss-500">{formatKz(pf.paidAmount)}</td>
+                  <td className="px-4 py-3 num text-right">{formatKz(pf.remaining)}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={pf.status === 'Pago' ? 'moss' : pf.status === 'Parcialmente Pago' ? 'gold' : 'ink'}>
+                      {pf.status}
+                    </Badge>
+                  </td>
                 </tr>
               ))}
-              {proformas.length === 0 && (
+              {proformaBalances.rows.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-ink-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-ink-400">
                     Sem proformas associadas.
                   </td>
                 </tr>
@@ -220,6 +249,13 @@ export default function ObraDetail() {
           </table>
         </div>
       </Card>
+      {proformaBalances.unallocated > 0.01 && (
+        <p className="mb-8 text-xs text-ink-400">
+          <span className="num text-ink-600">{formatKz(proformaBalances.unallocated)}</span> em pagamentos registados
+          não foram atribuídos a nenhuma Proforma específica (contam apenas para o total geral da Obra acima).
+        </p>
+      )}
+      {proformaBalances.unallocated <= 0.01 && <div className="mb-8" />}
 
       <div className="flex justify-end">
         <Button variant="danger" onClick={handleDelete}>

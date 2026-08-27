@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, Users, Phone, Mail } from 'lucide-react'
 import { Collections, createOne, subscribeAll } from '../lib/db.js'
 import PageHeader from '../components/PageHeader.jsx'
-import { Badge, Button, Card, Field, Input, Select, TextArea } from '../components/ui.jsx'
+import { Avatar, Badge, Button, Card, Field, Input, Select, TextArea } from '../components/ui.jsx'
 
 const EMPTY = {
   clientName: '',
@@ -47,6 +47,7 @@ export default function Clients() {
   return (
     <div>
       <PageHeader
+        icon={Users}
         eyebrow="Carteira"
         title="Clientes"
         subtitle={`${clients.length} cliente(s) registados`}
@@ -85,9 +86,28 @@ export default function Clients() {
                   onClick={() => navigate(`/clientes/${c.id}`)}
                   className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-gold-50/40"
                 >
-                  <td className="px-4 py-3 font-medium text-ink-800">{c.clientName}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={c.clientName} />
+                      <span className="font-medium text-ink-800">{c.clientName}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 num text-ink-500">{c.nif || '—'}</td>
-                  <td className="px-4 py-3 text-ink-500">{c.phone || c.email || '—'}</td>
+                  <td className="px-4 py-3 text-ink-500">
+                    <div className="flex flex-col gap-0.5">
+                      {c.phone && (
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          <Phone size={12} className="text-ink-300" /> {c.phone}
+                        </span>
+                      )}
+                      {c.email && (
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          <Mail size={12} className="text-ink-300" /> {c.email}
+                        </span>
+                      )}
+                      {!c.phone && !c.email && '—'}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={c.status === 'Inativo' ? 'clay' : 'moss'}>{c.status}</Badge>
                   </td>

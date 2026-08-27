@@ -79,7 +79,7 @@ export default function Layout() {
         <NavItems />
 
         <div className="border-t border-ink-800 px-4 py-4">
-          <p className="truncate text-xs text-ink-400 mb-2">{user?.email}</p>
+          
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-300 hover:bg-ink-800 hover:text-white transition-colors"
@@ -116,7 +116,7 @@ export default function Layout() {
             <NavItems onNavigate={() => setMobileOpen(false)} />
 
             <div className="border-t border-ink-800 px-4 py-4">
-              <p className="truncate text-xs text-ink-400 mb-2">{user?.email}</p>
+            
               <button
                 onClick={handleLogout}
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-300 hover:bg-ink-800 hover:text-white transition-colors"

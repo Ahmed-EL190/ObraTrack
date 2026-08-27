@@ -10,22 +10,88 @@ export function Button({ as: As = 'button', variant = 'primary', className = '',
   return <As className={`${base} ${variants[variant]} ${className}`} {...props} />
 }
 
-export function Badge({ tone = 'ink', children }) {
+export function Badge({ tone = 'ink', children, dot = true }) {
   const tones = {
     ink: 'bg-ink-100 text-ink-600',
     gold: 'bg-gold-100 text-gold-700',
     clay: 'bg-clay-500/10 text-clay-500',
     moss: 'bg-moss-500/10 text-moss-500'
   }
+  const dots = {
+    ink: 'bg-ink-400',
+    gold: 'bg-gold-500',
+    clay: 'bg-clay-500',
+    moss: 'bg-moss-500'
+  }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>
+      {dot && <span className={`h-1.5 w-1.5 rounded-full ${dots[tone]}`} />}
       {children}
     </span>
   )
 }
 
 export function Card({ className = '', children }) {
-  return <div className={`rounded-lg border border-ink-100 bg-white shadow-panel ${className}`}>{children}</div>
+  return <div className={`ledger-card rounded-lg border border-ink-100 bg-white shadow-panel ${className}`}>{children}</div>
+}
+
+// Círculo de iniciais com cor consistente por nome — ajuda a identificar
+// clientes/obras de relance nas listas, sem precisar de abrir o registo.
+const AVATAR_TONES = [
+  'bg-ink-600 text-ink-50',
+  'bg-gold-400 text-ink-900',
+  'bg-clay-500 text-white',
+  'bg-moss-500 text-white',
+  'bg-ink-400 text-white'
+]
+
+function hashName(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = (h << 5) - h + str.charCodeAt(i)
+    h |= 0
+  }
+  return Math.abs(h)
+}
+
+export function Avatar({ name, size = 'md' }) {
+  const label = String(name || '').trim()
+  const initials =
+    label
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('') || '?'
+  const tone = AVATAR_TONES[hashName(label) % AVATAR_TONES.length]
+  const sizes = {
+    sm: 'h-6 w-6 text-[10px]',
+    md: 'h-8 w-8 text-xs',
+    lg: 'h-11 w-11 text-sm'
+  }
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-display font-semibold ${sizes[size]} ${tone}`}
+    >
+      {initials}
+    </span>
+  )
+}
+
+// Barra de progresso fina — usada para mostrar % pago diretamente nas listas,
+// em vez de obrigar a abrir a Obra para ver o número.
+export function ProgressBar({ value = 0, tone = 'gold', className = '' }) {
+  const pct = Math.max(0, Math.min(100, Number(value) || 0))
+  const fills = {
+    gold: 'bg-gold-400',
+    moss: 'bg-moss-500',
+    clay: 'bg-clay-500',
+    ink: 'bg-ink-500'
+  }
+  return (
+    <div className={`h-1.5 w-full overflow-hidden rounded-full bg-ink-100 ${className}`}>
+      <div className={`h-full rounded-full ${fills[tone] || fills.gold} transition-all`} style={{ width: `${pct}%` }} />
+    </div>
+  )
 }
 
 export function Field({ label, children, hint }) {

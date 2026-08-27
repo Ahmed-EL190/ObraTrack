@@ -15,6 +15,25 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+/* Elemento de assinatura visual do site: um pequeno esquadro dourado no canto
+   de cada cartão, como uma marca de referência topográfica num desenho
+   técnico de obra. Discreto e consistente — aparece uma vez por cartão. */
+.ledger-card {
+  position: relative;
+}
+.ledger-card::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 7px;
+  height: 7px;
+  border-left: 1.5px solid #cf9a34;
+  border-top: 1.5px solid #cf9a34;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 ::selection {
   background-color: #deb455;
   color: #0f1420;

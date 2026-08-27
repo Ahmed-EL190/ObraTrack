@@ -11,7 +11,7 @@ import {
   getSettings,
   listAll
 } from '../lib/db.js'
-import { calculatePayment, computeObraSummary } from '../lib/calc.js'
+import { calculatePayment, computeObraSummary, computeProformaBalances, round2 } from '../lib/calc.js'
 import { formatKz, formatPercent, todayISO } from '../lib/format.js'
 import PageHeader from '../components/PageHeader.jsx'
 import { Button, Card, Field, Input, Select, TextArea } from '../components/ui.jsx'
@@ -41,6 +41,10 @@ export default function PaymentForm() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Quanto deste pagamento vai para cada Proforma: { [proformaId]: 'valor em texto' }.
+  // Fica vazio por omissão — o pagamento continua a aplicar-se ao total geral
+  // da Obra, exatamente como antes, a menos que o utilizador escolha dividir.
+  const [allocations, setAllocations] = useState({})
 
   useEffect(() => {
     listAll(Collections.CLIENTS).then(setClients)
@@ -75,6 +79,7 @@ export default function PaymentForm() {
       setSelectedObra(o)
       setProformas(pf)
       setExistingPayments(pays)
+      setAllocations({})
     }
     loadObraDetails()
   }, [form.obraId])
@@ -83,6 +88,40 @@ export default function PaymentForm() {
     if (!selectedObra) return null
     return computeObraSummary(selectedObra, existingPayments, settings.defaultRetentionRate)
   }, [selectedObra, existingPayments, settings])
+
+  // Estado de cada Proforma ANTES deste novo pagamento (com base nos pagamentos
+  // já registados) — usado para mostrar quanto falta em cada uma e para o
+  // preenchimento automático.
+  const proformaBalances = useMemo(() => computeProformaBalances(proformas, existingPayments), [proformas, existingPayments])
+
+  const allocatedTotal = round2(Object.values(allocations).reduce((sum, v) => sum + (Number(v) || 0), 0))
+  const unallocatedAmount = round2((Number(form.paymentAmount) || 0) - allocatedTotal)
+
+  function setAllocationFor(proformaId, value) {
+    setAllocations((prev) => ({ ...prev, [proformaId]: value }))
+  }
+
+  // Preenche automaticamente por ordem: liquida a Proforma mais antiga em
+  // falta primeiro, depois a seguinte, até o valor do pagamento acabar.
+  // Se quiser outra combinação (ex.: só a nº 2 e a nº 3), o utilizador pode
+  // sempre editar os valores manualmente a seguir.
+  function autoDistribute() {
+    let remaining = Number(form.paymentAmount) || 0
+    const next = {}
+    for (const pf of proformaBalances.rows) {
+      if (remaining <= 0) break
+      const owed = Math.max(0, pf.remaining)
+      if (owed <= 0) continue
+      const take = Math.min(owed, remaining)
+      next[pf.id] = String(round2(take))
+      remaining = round2(remaining - take)
+    }
+    setAllocations(next)
+  }
+
+  function clearAllocations() {
+    setAllocations({})
+  }
 
   const effectiveRate = selectedObra?.retentionRate ?? settings.defaultRetentionRate
 
@@ -120,10 +159,18 @@ export default function PaymentForm() {
 
     setSaving(true)
     try {
+      const allocationList = Object.entries(allocations)
+        .map(([proformaId, v]) => ({
+          proformaId,
+          proformaNumber: proformas.find((p) => p.id === proformaId)?.proformaNumber || '',
+          amount: round2(Number(v) || 0)
+        }))
+        .filter((a) => a.amount > 0)
+
       await createOne(Collections.PAYMENTS, {
         clientId: form.clientId,
         obraId: form.obraId,
-        proformaId: form.proformaId || null,
+        allocations: allocationList,
         paymentDate: form.paymentDate,
         paymentAmount: Number(form.paymentAmount),
         paymentReference: form.paymentReference,
@@ -181,16 +228,67 @@ export default function PaymentForm() {
               </Field>
             </div>
 
-            <Field label="Proforma" hint="Opcional">
-              <Select value={form.proformaId} onChange={(e) => setForm({ ...form, proformaId: e.target.value })} disabled={!form.obraId}>
-                <option value="">Selecionar…</option>
-                {proformas.map((pf) => (
-                  <option key={pf.id} value={pf.id}>
-                    {pf.proformaNumber}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {proformas.length > 0 && (
+              <Field
+                label="Alocação por Proforma"
+                hint="Opcional — indique quanto deste pagamento pertence a cada Proforma. Pode liquidar todas, algumas, ou só uma, com valores diferentes. O que não alocar aqui conta só para o total geral da Obra."
+              >
+                <div className="rounded-md border border-ink-200 divide-y divide-ink-100">
+                  {proformaBalances.rows.map((pf) => (
+                    <div key={pf.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+                      <div className="min-w-[110px] flex-1">
+                        <p className="num text-sm font-medium text-ink-800">{pf.proformaNumber}</p>
+                        <p className="text-xs text-ink-400">
+                          Falta {formatKz(pf.remaining)}{' '}
+                          <span
+                            className={
+                              pf.status === 'Pago'
+                                ? 'text-moss-500'
+                                : pf.status === 'Parcialmente Pago'
+                                ? 'text-gold-600'
+                                : 'text-ink-400'
+                            }
+                          >
+                            ({pf.status})
+                          </span>
+                        </p>
+                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0,00"
+                        className="w-32"
+                        value={allocations[pf.id] || ''}
+                        onChange={(e) => setAllocationFor(pf.id, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={autoDistribute} disabled={!form.paymentAmount}>
+                      Preencher automaticamente
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={clearAllocations}>
+                      Limpar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-ink-400">
+                    Alocado: <span className="num text-ink-700">{formatKz(allocatedTotal)}</span> · Não alocado:{' '}
+                    <span className={`num ${unallocatedAmount < -0.01 ? 'text-clay-500' : 'text-ink-700'}`}>
+                      {formatKz(unallocatedAmount)}
+                    </span>
+                  </p>
+                </div>
+                {unallocatedAmount < -0.01 && (
+                  <p className="mt-1 text-xs text-clay-500">
+                    <AlertTriangle size={12} className="inline mr-1 -mt-0.5" />
+                    Alocou mais do que o valor do pagamento.
+                  </p>
+                )}
+              </Field>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Data do Pagamento *">

@@ -5,7 +5,8 @@ import {
   X,
   UploadCloud,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  HardHat
 } from 'lucide-react'
 
 import {
@@ -34,11 +35,13 @@ import { findBestNameMatch, AUTO_MATCH_THRESHOLD } from '../lib/nameMatch.js'
 import PageHeader from '../components/PageHeader.jsx'
 
 import {
+  Avatar,
   Badge,
   Button,
   Card,
   Field,
   Input,
+  ProgressBar,
   Select,
   TextArea
 } from '../components/ui.jsx'
@@ -1094,6 +1097,8 @@ export default function Obras() {
 
       <PageHeader
 
+        icon={HardHat}
+
         eyebrow="Projetos"
 
         title="Obras"
@@ -1435,12 +1440,19 @@ export default function Obras() {
 
                     <td className="px-4 py-3 text-ink-500">
 
-                      {
-                        clientMap[
-                          obra.clientId
-                        ]?.clientName ||
-                        '—'
-                      }
+                      <div className="flex items-center gap-2.5">
+                        {clientMap[obra.clientId]?.clientName && (
+                          <Avatar name={clientMap[obra.clientId]?.clientName} size="sm" />
+                        )}
+                        <span>
+                          {
+                            clientMap[
+                              obra.clientId
+                            ]?.clientName ||
+                            '—'
+                          }
+                        </span>
+                      </div>
 
                     </td>
 
@@ -1463,11 +1475,25 @@ export default function Obras() {
                     </td>
 
 
-                    <td className="px-4 py-3 num">
+                    <td className="px-4 py-3">
 
-                      {formatPercent(
-                        s.paidPercent
-                      )}
+                      <div className="flex flex-col gap-1 min-w-[84px]">
+                        <span className="num text-xs text-ink-600">
+                          {formatPercent(
+                            s.paidPercent
+                          )}
+                        </span>
+                        <ProgressBar
+                          value={s.paidPercent}
+                          tone={
+                            s.paidPercent >= 100
+                              ? 'moss'
+                              : s.paidPercent >= 40
+                              ? 'gold'
+                              : 'clay'
+                          }
+                        />
+                      </div>
 
                     </td>
 
